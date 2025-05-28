@@ -24,157 +24,157 @@ def create_parser() -> argparse.ArgumentParser:
         description="Domain Impersonation Checker - Identify potential domain impersonation threats",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    
+
     parser.add_argument(
         "domain",
         help="Domain to check for potential impersonation (e.g., example.com)"
     )
-    
+
     parser.add_argument(
         "-o", "--output",
         help="Output file path for the results (JSON format)"
     )
-    
+
     parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Enable verbose output"
     )
-    
+
     parser.add_argument(
         "--version",
         action="version",
         version=f"Domain Impersonation Checker v{__version__}"
     )
-    
+
     # Variation generation options
     variation_group = parser.add_argument_group("Variation Generation Options")
-    
+
     variation_group.add_argument(
         "--no-typos",
         action="store_true",
         help="Disable typosquatting variation generation"
     )
-    
+
     variation_group.add_argument(
         "--no-homoglyphs",
         action="store_true",
         help="Disable homoglyph variation generation"
     )
-    
+
     variation_group.add_argument(
         "--no-tlds",
         action="store_true",
         help="Disable TLD variation generation"
     )
-    
+
     variation_group.add_argument(
         "--max-variations",
         type=int,
         default=1000,
         help="Maximum number of variations to generate per category"
     )
-    
+
     # Analysis options
     analysis_group = parser.add_argument_group("Analysis Options")
-    
+
     analysis_group.add_argument(
         "--no-dns",
         action="store_true",
         help="Skip DNS resolution checking"
     )
-    
+
     analysis_group.add_argument(
         "--no-whois",
         action="store_true",
         help="Skip WHOIS lookups"
     )
-    
+
     analysis_group.add_argument(
         "--concurrency",
         type=int,
         default=10,
         help="Maximum number of concurrent domain checks"
     )
-    
+
     analysis_group.add_argument(
         "--dns-timeout",
         type=float,
         default=2.0,
         help="Timeout in seconds for DNS queries"
     )
-    
+
     analysis_group.add_argument(
         "--whois-timeout",
         type=float,
         default=5.0,
         help="Timeout in seconds for WHOIS queries"
     )
-    
+
     analysis_group.add_argument(
         "--min-risk-score",
         type=int,
         default=60,
         help="Minimum risk score (0-100) to consider a domain high-risk"
     )
-    
+
     # Display options
     display_group = parser.add_argument_group("Display Options")
-    
+
     display_group.add_argument(
         "--show-all",
         action="store_true",
         help="Show all domains in the report, not just high-risk ones"
     )
-    
+
     display_group.add_argument(
         "--format",
         choices=["text", "json"],
         default="text",
         help="Output format"
     )
-    
+
     return parser
 
 
 def generate_variations(domain: str, args: argparse.Namespace) -> Dict[str, List[str]]:
     """
     Generate domain variations based on command-line arguments.
-    
+
     Args:
         domain: The domain to generate variations for
         args: Command-line arguments
-        
+
     Returns:
         Dictionary mapping variation types to lists of domain variations
     """
     if args.verbose:
         print(f"Generating variations for {domain}...")
-    
+
     generator = DomainVariationGenerator(max_variations=args.max_variations)
-    
+
     variations = generator.generate_all_variations(
         domain,
         include_typos=not args.no_typos,
         include_homoglyphs=not args.no_homoglyphs,
         include_tlds=not args.no_tlds
     )
-    
+
     if args.verbose:
         for var_type, var_list in variations.items():
             print(f"Generated {len(var_list)} {var_type} variations")
-    
+
     return variations
 
 
 def analyze_domains(variations: Dict[str, List[str]], args: argparse.Namespace) -> Dict[str, DomainAnalysisResult]:
     """
     Analyze domain variations for potential impersonation threats.
-    
+
     Args:
         variations: Dictionary of domain variations by type
         args: Command-line arguments
-        
+
     Returns:
         Dictionary mapping domains to their analysis results
     """
@@ -182,16 +182,16 @@ def analyze_domains(variations: Dict[str, List[str]], args: argparse.Namespace) 
     all_domains = set()
     for var_list in variations.values():
         all_domains.update(var_list)
-    
+
     total_domains = len(all_domains)
-    
+
     if args.verbose:
         print(f"Analyzing {total_domains} unique domain variations...")
-    
+
     if args.no_dns and args.no_whois:
         print("Warning: Both DNS and WHOIS checks are disabled. No analysis will be performed.")
         return {}
-    
+
     try:
         analyzer = DomainAnalyzer(
             max_workers=args.concurrency,
@@ -202,21 +202,21 @@ def analyze_domains(variations: Dict[str, List[str]], args: argparse.Namespace) 
         print(f"Error: {e}")
         print("Please install the required dependencies and try again.")
         sys.exit(1)
-    
+
     domains_list = list(all_domains)
     results = {}
-    
+
     # Simple progress indicator
     if args.verbose:
         start_time = time.time()
         print("Analysis progress:")
-    
+
     batch_size = min(100, args.concurrency * 10)
     for i in range(0, len(domains_list), batch_size):
         batch = domains_list[i:i+batch_size]
         batch_results = analyzer.analyze_domains(batch)
         results.update(batch_results)
-        
+
         if args.verbose:
             progress = min(100, int((i + len(batch)) / total_domains * 100))
             elapsed = time.time() - start_time
@@ -224,27 +224,27 @@ def analyze_domains(variations: Dict[str, List[str]], args: argparse.Namespace) 
             remaining = (total_domains - (i + len(batch))) / domains_per_second if domains_per_second > 0 else 0
             print(f"Progress: {progress}% ({i + len(batch)}/{total_domains}) - "
                   f"~{remaining:.1f}s remaining ({domains_per_second:.1f} domains/s)")
-    
+
     if args.verbose:
         print(f"Analysis completed in {time.time() - start_time:.1f} seconds")
-    
+
     return results
 
 
 def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
     """
     Format the analysis report as text.
-    
+
     Args:
         report: The analysis report dictionary
         args: Command-line arguments
-        
+
     Returns:
         Formatted text report
     """
     summary = report["summary"]
     high_risk = report["high_risk_domains"]
-    
+
     lines = [
         "Domain Impersonation Checker - Analysis Report",
         "=" * 50,
@@ -258,7 +258,7 @@ def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
         f"  High-risk domains: {summary['high_risk_domains']}",
         "",
     ]
-    
+
     if high_risk:
         lines.append("High Risk Domains:")
         lines.append("-" * 50)
@@ -266,7 +266,7 @@ def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
             creation_date = domain.get("creation_date")
             if isinstance(creation_date, list) and creation_date:
                 creation_date = creation_date[0]
-            
+
             date_str = ""
             if creation_date:
                 try:
@@ -276,7 +276,7 @@ def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
                         date_str = creation_date.strftime("%Y-%m-%d")
                 except:
                     date_str = str(creation_date)
-            
+
             lines.append(f"Domain: {domain['domain']}")
             lines.append(f"  Risk Score: {domain['risk_score']}/100")
             lines.append(f"  Registered: {'Yes' if domain['is_registered'] else 'No'}")
@@ -288,7 +288,7 @@ def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
             lines.append("")
     else:
         lines.append("No high-risk domains identified.")
-    
+
     if args.show_all and "all_domains" in report:
         lines.append("")
         lines.append("All Analyzed Domains:")
@@ -297,14 +297,14 @@ def format_text_report(report: Dict[str, Any], args: argparse.Namespace) -> str:
             lines.append(f"{domain['domain']} - Risk: {domain['risk_score']}/100 - "
                         f"Registered: {'Yes' if domain['is_registered'] else 'No'} - "
                         f"Active DNS: {'Yes' if domain['has_dns_records'] else 'No'}")
-    
+
     return "\n".join(lines)
 
 
 def save_report(report: Dict[str, Any], output_path: str, format_type: str) -> None:
     """
     Save the report to a file.
-    
+
     Args:
         report: The analysis report dictionary
         output_path: Path to save the report to
@@ -328,37 +328,37 @@ def save_report(report: Dict[str, Any], output_path: str, format_type: str) -> N
 def main() -> int:
     """
     Main entry point for the CLI.
-    
+
     Returns:
         Exit code (0 for success, non-zero for errors)
     """
     parser = create_parser()
     args = parser.parse_args()
-    
+
     try:
         # Generate domain variations
         variations = generate_variations(args.domain, args)
-        
+
         # Count total variations
         total_variations = sum(len(var_list) for var_list in variations.values())
         if total_variations == 0:
             print("No domain variations were generated. Check your configuration.")
             return 1
-        
+
         # Analyze domains
         results = analyze_domains(variations, args)
-        
+
         # Generate report
         if args.verbose:
             print("Generating report...")
-        
+
         analyzer = DomainAnalyzer()
         report = analyzer.generate_report(
             results,
             include_all=args.show_all,
             risk_threshold=args.min_risk_score
         )
-        
+
         # Output report
         if args.format == "json":
             if args.output:
@@ -371,9 +371,9 @@ def main() -> int:
                 save_report({"text_report": text_report}, args.output, "text")
             else:
                 print(text_report)
-        
+
         return 0
-    
+
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
         return 130

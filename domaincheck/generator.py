@@ -198,7 +198,10 @@ class DomainVariationGenerator:
                     new_domain = list(domain_name)
                     for idx, replacement in zip(combo, replacements):
                         new_domain[idx] = replacement
-                    variations.add(''.join(new_domain) + tld_suffix)
+
+                    domain_variant = ''.join(new_domain) + tld_suffix
+                    if domain != domain_variant:
+                        variations.add(domain_variant)
 
                     if len(variations) >= self.max_variations:
                         return list(variations)

@@ -248,9 +248,6 @@ class DomainAnalyzer:
         Returns:
             Dictionary containing the analysis report
         """
-        for r in results.values():
-            print(r.dns_records)
-            print(r.risk_score)
         high_risk = self.identify_high_risk_domains(results, risk_threshold)
 
         # Sort all results by risk score
