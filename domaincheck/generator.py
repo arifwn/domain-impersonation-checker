@@ -127,36 +127,48 @@ class DomainVariationGenerator:
         # 1. Character swaps (transposition)
         for i in range(len(domain_name) - 1):
             swapped = domain_name[:i] + domain_name[i+1] + domain_name[i] + domain_name[i+2:]
-            variations.add(swapped + tld_suffix)
+            domain_variant = swapped + tld_suffix
+            if domain != domain_variant:
+                variations.add(domain_variant)
 
         # 2. Character deletion
         for i in range(len(domain_name)):
             deleted = domain_name[:i] + domain_name[i+1:]
             if deleted:  # Ensure we don't add empty domain names
-                variations.add(deleted + tld_suffix)
+                domain_variant = deleted + tld_suffix
+                if domain != domain_variant:
+                    variations.add(domain_variant)
 
         # 3. Character insertion (simulate common typos)
         for i in range(len(domain_name) + 1):
             for char in "abcdefghijklmnopqrstuvwxyz0123456789-":
                 inserted = domain_name[:i] + char + domain_name[i:]
-                variations.add(inserted + tld_suffix)
+                domain_variant = inserted + tld_suffix
+                if domain != domain_variant:
+                    variations.add(domain_variant)
 
         # 4. Character replacement (adjacent keys)
         for i, char in enumerate(domain_name):
             if char.lower() in self.ADJACENT_KEYS:
                 for adjacent in self.ADJACENT_KEYS[char.lower()]:
                     replaced = domain_name[:i] + adjacent + domain_name[i+1:]
-                    variations.add(replaced + tld_suffix)
+                    domain_variant = replaced + tld_suffix
+                    if domain != domain_variant:
+                        variations.add(domain_variant)
 
         # 5. Double character (repetition)
         for i, char in enumerate(domain_name):
             doubled = domain_name[:i] + char + domain_name[i:]
-            variations.add(doubled + tld_suffix)
+            domain_variant = doubled + tld_suffix
+            if domain != domain_variant:
+                variations.add(domain_variant)
 
         # 6. Missing dot in subdomain
         if '.' in domain_name:
             nodot = domain_name.replace('.', '')
-            variations.add(nodot + tld_suffix)
+            domain_variant = nodot + tld_suffix
+            if domain != domain_variant:
+                variations.add(domain_variant)
 
         return list(variations)[:self.max_variations]
 
